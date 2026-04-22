@@ -53,7 +53,7 @@ You should see output indicating successful initialization and node configuratio
 
 ## Acknowledgments
 A huge thank you to the original authors and contributors who made this driver possible:
-- **Alexander Egorenkov** for the initial driver implementation and CS8409 TAS5764L support.
+- **Alexander Egorenkov** for the initial user i forked from and CS8409 TAS5764L support.
 - The open-source community members (including milan475) who helped reverse-engineer and test the hardware quirks for Apple devices.
 
 ## License
