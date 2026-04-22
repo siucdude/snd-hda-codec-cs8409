@@ -962,7 +962,7 @@ static void cs8409_free(struct hda_codec *codec)
 	cancel_delayed_work_sync(&spec->i2c_clk_work);
 	cs8409_disable_i2c_clock(codec);
 
-	snd_hda_gen_free(codec);
+	snd_hda_gen_remove(codec);
 }
 
 /******************************************************************************
@@ -1080,7 +1080,7 @@ static const struct hda_codec_ops cs8409_cs42l42_patch_ops = {
 	.build_controls = cs8409_build_controls,
 	.build_pcms = snd_hda_gen_build_pcms,
 	.init = cs8409_init,
-	.free = cs8409_free,
+	.remove = cs8409_free,
 	.unsol_event = cs8409_cs42l42_jack_unsol_event,
 	.suspend = cs8409_cs42l42_suspend,
 };
@@ -1134,7 +1134,7 @@ void cs8409_cs42l42_fixups(struct hda_codec *codec, const struct hda_fixup *fix,
 		spec->scodecs[CS8409_CODEC0] = &cs8409_cs42l42_codec;
 		spec->num_scodecs = 1;
 		spec->scodecs[CS8409_CODEC0]->codec = codec;
-		codec->patch_ops = cs8409_cs42l42_patch_ops;
+		spec->cur_ops = &cs8409_cs42l42_patch_ops;
 
 		spec->gen.suppress_auto_mute = 1;
 		spec->gen.no_primary_hp = 1;
@@ -1308,7 +1308,7 @@ static const struct hda_codec_ops cs8409_dolphin_patch_ops = {
 	.build_controls = cs8409_build_controls,
 	.build_pcms = snd_hda_gen_build_pcms,
 	.init = cs8409_init,
-	.free = cs8409_free,
+	.remove = cs8409_free,
 	.unsol_event = dolphin_jack_unsol_event,
 	.suspend = cs8409_cs42l42_suspend,
 };
@@ -1371,7 +1371,7 @@ void dolphin_fixups(struct hda_codec *codec, const struct hda_fixup *fix, int ac
 		spec->num_scodecs = 2;
 		spec->gen.suppress_vmaster = 1;
 
-		codec->patch_ops = cs8409_dolphin_patch_ops;
+		spec->cur_ops = &cs8409_dolphin_patch_ops;
 
 		/* GPIO 1,5 out, 0,4 in */
 		spec->gpio_dir = spec->scodecs[CS8409_CODEC0]->reset_gpio |
@@ -1494,10 +1494,84 @@ static const struct hda_device_id snd_hda_id_cs8409[] = {
 };
 MODULE_DEVICE_TABLE(hdaudio, snd_hda_id_cs8409);
 
+static int cs8409_hda_probe(struct hda_codec *codec, const struct hda_device_id *id)
+{
+	return patch_cs8409(codec);
+}
+
+static int cs8409_hda_build_controls(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+	if (spec && spec->cur_ops && spec->cur_ops->build_controls)
+		return spec->cur_ops->build_controls(codec);
+	return 0;
+}
+
+static int cs8409_hda_build_pcms(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+	if (spec && spec->cur_ops && spec->cur_ops->build_pcms)
+		return spec->cur_ops->build_pcms(codec);
+	return 0;
+}
+
+static int cs8409_hda_init(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+	if (spec && spec->cur_ops && spec->cur_ops->init)
+		return spec->cur_ops->init(codec);
+	return 0;
+}
+
+static void cs8409_hda_remove(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+	if (spec && spec->cur_ops && spec->cur_ops->remove)
+		spec->cur_ops->remove(codec);
+}
+
+static void cs8409_hda_unsol_event(struct hda_codec *codec, unsigned int res)
+{
+	struct cs8409_spec *spec = codec->spec;
+	if (spec && spec->cur_ops && spec->cur_ops->unsol_event)
+		spec->cur_ops->unsol_event(codec, res);
+}
+
+#ifdef CONFIG_PM
+static int cs8409_hda_suspend(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+	if (spec && spec->cur_ops && spec->cur_ops->suspend)
+		return spec->cur_ops->suspend(codec);
+	return 0;
+}
+
+static int cs8409_hda_resume(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+	if (spec && spec->cur_ops && spec->cur_ops->resume)
+		return spec->cur_ops->resume(codec);
+	return 0;
+}
+#endif
+
+static const struct hda_codec_ops cs8409_driver_ops = {
+	.probe = cs8409_hda_probe,
+	.build_controls = cs8409_hda_build_controls,
+	.build_pcms = cs8409_hda_build_pcms,
+	.init = cs8409_hda_init,
+	.remove = cs8409_hda_remove,
+	.unsol_event = cs8409_hda_unsol_event,
+#ifdef CONFIG_PM
+	.suspend = cs8409_hda_suspend,
+	.resume = cs8409_hda_resume,
+#endif
+};
+
 static struct hda_codec_driver cs8409_driver = {
 	.id = snd_hda_id_cs8409,
+	.ops = &cs8409_driver_ops,
 };
 module_hda_codec_driver(cs8409_driver);
-
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Cirrus Logic HDA bridge");

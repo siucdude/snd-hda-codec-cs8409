@@ -19,7 +19,19 @@
 #include "hda_jack.h"
 #include "hda_generic.h"
 
+#ifndef HDA_CODEC_ENTRY
+#define HDA_CODEC_ENTRY(_vid, _name, _patch) \
+	{ .vendor_id = (_vid), .name = (_name), .driver_data = (unsigned long)(_patch) }
+#endif
+
+#ifndef HDA_CODEC_ENTRY
+#define HDA_CODEC_ENTRY(_vid, _name, _patch) \
+	{ .vendor_id = (_vid), .name = (_name), .driver_data = (unsigned long)(_patch) }
+#endif
+
 /* CS8409 Specific Definitions */
+
+struct hda_coef;
 
 enum cs8409_pins {
 	CS8409_PIN_ROOT,
@@ -341,6 +353,7 @@ struct sub_codec {
 
 struct cs8409_spec {
 	struct hda_gen_spec gen;
+	const struct hda_codec_ops *cur_ops;
 	struct hda_codec *codec;
 
 	struct sub_codec *scodecs[CS8409_MAX_CODECS];

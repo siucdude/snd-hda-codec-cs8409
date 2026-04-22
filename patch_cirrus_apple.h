@@ -4,6 +4,41 @@
 
 #include <linux/version.h>
 
+void cs_8409_dump_callback(struct hda_codec *codec);
+struct hda_jack_callback *cs_8409_hda_jack_detect_enable_callback(struct hda_codec *codec, hda_nid_t nid, int dev_id, int tag, hda_jack_callback_fn func);
+int cs_8409_apple_build_pcms(struct hda_codec *codec);
+void cs_8409_cs42l83_mark_jack(struct hda_codec *codec);
+void cs_8409_cs42l83_jack_report_sync(struct hda_codec *codec);
+void cs_8409_cs42l83_jack_report_hp_update(struct hda_codec *codec, int plugin);
+void cs_8409_cs42l83_jack_unsol_event(struct hda_codec *codec, unsigned int res);
+void cs_8409_apple_free(struct hda_codec *codec);
+static void cs_8409_play_real(struct hda_codec *codec);
+static void cs_8409_playstop_real(struct hda_codec *codec);
+static void cs_8409_capture_real(struct hda_codec *codec);
+static void cs_8409_capturestop_real(struct hda_codec *codec);
+static void cs_8409_headplay_real(struct hda_codec *codec);
+static void cs_8409_headplaystop_real(struct hda_codec *codec);
+static void cs_8409_headcapture_real(struct hda_codec *codec);
+static void cs_8409_headcapturestop_real(struct hda_codec *codec);
+static int cs_8409_boot_setup_real(struct hda_codec *codec);
+static void cs_8409_intmike_linein_disable(struct hda_codec *codec);
+static void cs_8409_headset_mike_streaming_preplay(struct hda_codec *codec, int flag);
+static void cs_8409_headset_mike_buttons_enable(struct hda_codec *codec);
+static void cs_8409_external_device_unsolicited_response(struct hda_codec *codec);
+void snd_hda_coef_item(struct hda_codec *codec, u16 write_flag, hda_nid_t nid, u32 idx, u32 param, u32 retdata, int srcidx);
+int snd_hda_coef_item_check(struct hda_codec *codec, u16 write_flag, hda_nid_t nid, u32 idx, u32 param, u32 retdata, int srcidx);
+void snd_hda_coef_item_masked(struct hda_codec *codec, u16 write_flag, hda_nid_t nid, u32 idx, u32 param, u32 mask, u32 retdata, u32 srcval, int srcidx);
+void snd_hda_coef_sequence(struct hda_codec *codec, const struct hda_coef *seq, char *prtstr);
+void snd_hda_double_reset(struct hda_codec *codec);
+void cs_8409_play_setup(struct hda_codec *codec);
+void cs_8409_play_cleanup(struct hda_codec *codec);
+void cs_8409_capture_setup(struct hda_codec *codec);
+void cs_8409_capture_cleanup(struct hda_codec *codec);
+void cs_8409_headplay_setup(struct hda_codec *codec);
+void cs_8409_headplay_cleanup(struct hda_codec *codec);
+void cs_8409_headcapture_setup(struct hda_codec *codec);
+void cs_8409_headcapture_cleanup(struct hda_codec *codec);
+
 //#include "hda_generic.h"
 
 //#include "patch_cs8409.h"
@@ -28,8 +63,8 @@
 #define myprintk(fmt, args...) \
         printk(fmt, ##args)
 #else
-#define mycodec_dbg(...)
-#define myprintk_dbg(...)
+#define mycodec_dbg(...) do { } while (0)
+#define myprintk_dbg(...) do { } while (0)
 #ifdef MYSOUNDDEBUG
 #define mycodec_info(codec, fmt, args...) \
         dev_info(hda_codec_dev(codec), fmt, ##args)
@@ -40,10 +75,10 @@
 #define myprintk(fmt, args...) \
         printk(fmt, ##args)
 #else
-#define mycodec_info(...)
-#define mycodec_i2c_info(...)
-#define mydev_info(...)
-#define myprintk(...)
+#define mycodec_info(...) do { } while (0)
+#define mycodec_i2c_info(...) do { } while (0)
+#define mydev_info(...) do { } while (0)
+#define myprintk(...) do { } while (0)
 #endif
 #endif
 
@@ -426,6 +461,7 @@ struct hda_cvt_setup_apple {
 
 struct cs8409_apple_spec {
 	struct hda_gen_spec gen;
+	const struct hda_codec_ops *cur_ops;
 
 	unsigned int gpio_mask;
 	unsigned int gpio_dir;
@@ -997,7 +1033,7 @@ static void cs_8409_add_chmap_ctls(struct hda_codec *codec)
         mycodec_dbg(codec, "cs_8409_add_chmap_ctls enter");
 
         list_for_each_entry(pcm, &codec->pcm_list_head, list) {
-                struct hda_pcm_stream *hinfo =
+                const struct hda_pcm_stream *hinfo =
                         &pcm->stream[SNDRV_PCM_STREAM_PLAYBACK];
                 struct snd_pcm_chmap *chmap;
                 const struct snd_pcm_chmap_elem *elem;
@@ -1188,7 +1224,7 @@ static int cs_8409_apple_boot_init(struct hda_codec *codec)
 	// so analog_playback_stream is still NULL here - maybe only defined when doing actual playback
 	// the info stream is now defined
 	spec = codec->spec;
-        hinfo = spec->gen.stream_analog_playback;
+        hinfo = (struct hda_pcm_stream *)spec->gen.stream_analog_playback;
 	if (hinfo != NULL)
 	{
 		mycodec_dbg(codec, "hinfo stream nid 0x%02x rates 0x%08x formats 0x%016llx\n",hinfo->nid,hinfo->rates,hinfo->formats);
@@ -1205,8 +1241,7 @@ static int cs_8409_apple_boot_init(struct hda_codec *codec)
 
                 for (stream = 0; stream < 2; stream++) {
                         struct hda_pcm_stream *hinfo = &info->stream[stream];
-
-			mycodec_dbg(codec, "cs_8409_apple_boot_init info stream %d pointer %p\n",stream,hinfo);
+                        mycodec_dbg(codec, "cs_8409_apple_boot_init info stream %d pointer %p\n",stream,hinfo);
 
 			if (hinfo != NULL)
 			{
@@ -1236,9 +1271,7 @@ static int cs_8409_apple_boot_init(struct hda_codec *codec)
 
                 for (stream = 0; stream < 2; stream++) {
                         struct hda_pcm_stream *hinfo = &info->stream[stream];
-
-			if (hinfo != NULL)
-			{
+                        if (hinfo != NULL)			{
 				if (stream == SNDRV_PCM_STREAM_PLAYBACK)
 				{
 					if (hinfo->nid == 0x02)
@@ -1395,10 +1428,11 @@ static int cs_8409_apple_init(struct hda_codec *codec)
 
 static int cs_8409_apple_resume(struct hda_codec *codec)
 {
+        struct cs8409_apple_spec *spec = codec->spec;
         myprintk("snd_hda_intel: cs_8409_apple_resume\n");
         // code copied from default resume patch ops
-	if (codec->patch_ops.init)
-		codec->patch_ops.init(codec);
+	if (spec && spec->cur_ops && spec->cur_ops->init)
+		spec->cur_ops->init(codec);
 	snd_hda_regmap_sync(codec);
         myprintk("snd_hda_intel: end cs_8409_apple_resume\n");
         return 0;
@@ -1710,7 +1744,7 @@ void cs_8409_apple_free(struct hda_codec *codec)
 
 	//del_timer(&cs_8409_hp_timer);
 
-	snd_hda_gen_free(codec);
+	snd_hda_gen_remove(codec);
 }
 
 
@@ -1720,7 +1754,7 @@ static const struct hda_codec_ops cs_8409_apple_patch_ops = {
 	.build_controls = cs_8409_apple_build_controls,
 	.build_pcms = cs_8409_apple_build_pcms,
 	.init = cs_8409_apple_init,
-	.free = cs_8409_apple_free,
+	.remove = cs_8409_apple_free,
 	.unsol_event = cs_8409_cs42l83_jack_unsol_event,
 #ifdef CONFIG_PM
         .resume = cs_8409_apple_resume,
@@ -2591,7 +2625,7 @@ static int patch_cs8409_apple(struct hda_codec *codec)
                //codec->patch_ops = cs_8409_apple_patch_ops_explicit;
                }
         else
-               codec->patch_ops = cs_8409_apple_patch_ops;
+               spec->cur_ops = &cs_8409_apple_patch_ops;
 
 
 	// not sure about these
@@ -2733,7 +2767,7 @@ static int patch_cs8409_apple(struct hda_codec *codec)
                //codec->patch_ops = cs_8409_apple_patch_ops_explicit;
                }
         else
-               codec->patch_ops = cs_8409_apple_patch_ops;
+               spec->cur_ops = &cs_8409_apple_patch_ops;
 #endif
 
         // moved to post auto config
