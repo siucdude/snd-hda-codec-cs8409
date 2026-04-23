@@ -13,18 +13,33 @@ This repository includes modernization patches to ensure compatibility with **Li
 ## Installation
 
 ### Prerequisites
-Make sure you have the Linux kernel headers and build essentials installed for your current kernel:
+Make sure you have the Linux kernel headers and build essentials installed for your distribution:
 
+**Ubuntu/Debian**
 ```bash
-sudo apt-get update
-sudo apt-get install build-essential linux-headers-$(uname -r)
+sudo apt install gcc linux-headers-generic make patch wget
+```
+
+**Fedora**
+```bash
+sudo dnf install gcc kernel-devel make patch wget
+```
+
+**Arch Linux**
+```bash
+sudo pacman -S gcc linux-headers make patch wget
+```
+
+**Void Linux**
+```bash
+sudo xbps-install -S gcc make linux-headers patch wget
 ```
 
 ### Build and Install
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/snd-hda-codec-cs8409.git
+   git clone https://github.com/siucdude/snd-hda-codec-cs8409.git
    cd snd-hda-codec-cs8409
    ```
 
@@ -49,7 +64,11 @@ You can verify that the driver has loaded correctly by checking the kernel ring 
 ```bash
 dmesg | grep cs8409
 ```
-You should see output indicating successful initialization and node configuration.
+
+You should also see the module listed in the loaded kernel modules:
+```bash
+lsmod | grep snd_hda_codec_cs8409
+```
 
 ## Acknowledgments
 A huge thank you to the original authors and contributors who made this driver possible:
